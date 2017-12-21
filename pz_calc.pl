@@ -61,6 +61,32 @@ sub main {
     $g_job_sts = '0';
     update_job_sts();
 
+    # 设置默认作业状态为失败
+    $g_job_sts = '2';
+
+    # 加载一码通账号列表
+    prepare_acct_table();
+
+    #执行配资账户识别计算
+    perform_pz_calc();
+
+    # 设置作业运行状态为成功
+    $g_job_sts = '1';
+
+    print "\nPZ calculation finished successfully at " . getTime("yyyy-mm-dd hh:mi:ss") . "\n";
+
+}
+
+sub perform_pz_calc() {
+    my %PARAM = %MAIN_PARAM;
+    foreach my $k (keys %JOB_PARAM) {
+        $PARAM{$k} = $JOB_PARAM{$k};
+    }
+
+    $PARAM{'max_dt'} = '30001231';
+
+    print "\nPZ calculation ...\n";
+    run_update("pz-calc.sql", %PARAM);
 
 }
 
@@ -71,16 +97,16 @@ sub prepare_acct_table() {
     }
 
     if ($JOB_PARAM{'prmt_type'} eq "0") {
-        $PARAM{'LOAD_TBL'} = "pz_fastld_$PARAM{'abno_incm_calc_btch'}";
-        $PARAM{'LOAD_ERR_TBL_1'} = "abno_fastld_$PARAM{'abno_incm_calc_btch'}_err1";
-        $PARAM{'LOAD_ERR_TBL_2'} = "abno_fastld_$PARAM{'abno_incm_calc_btch'}_err2";
-        $PARAM{'LOAD_DATA_FILE'} = $JOB_PARAM{'invst_cntnt'};
+        $PARAM{'LOAD_TBL'} = "pz_fastld_$PARAM{'ld_nbr'}";
+        $PARAM{'LOAD_ERR_TBL_1'} = "abno_fastld_$PARAM{'ld_nbr'}_err1";
+        $PARAM{'LOAD_ERR_TBL_2'} = "abno_fastld_$PARAM{'ld_nbr'}_err2";
+        $PARAM{'LOAD_DATA_FILE'} = $JOB_PARAM{'prmt_val'};
 
         run_fastload("load-file.sql", %PARAM);
-        run_update("prepare-invst-from-file.sql", %PARAM);
+        run_update("prepare-oap-list-from-file.sql", %PARAM);
     }
     else {
-        run_update("prepare-invst-per-type.sql", %PARAM);
+        run_update("prepare-oap-list-per-type.sql", %PARAM);
     }
 }
 
@@ -242,7 +268,7 @@ sub run_update() {
 
     my $complete_script = eval("return \"$template_script\"");
 
-    #    print "After process ...\n$complete_script\n";
+#    print "After process ...\n$complete_script\n";
 
     open(my $complete_script_fh, ">$template.bteq") or die "Can not open $template.bteq";
     print $complete_script_fh $complete_script;
